@@ -1,4 +1,4 @@
-﻿#include <cstring>
+#include <cstring>
 #include <format>
 #include <iostream>
 #include <fstream>
