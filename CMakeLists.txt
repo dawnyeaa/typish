@@ -3,8 +3,8 @@ project(typish)
 
 set(CMAKE_CXX_STANDARD 20)
 
-include_directories(E:/opengl/include)
-link_directories(E:/opengl/lib)
+include_directories($ENV{OPENGL_PATH}/include)
+link_directories($ENV{OPENGL_PATH}/lib)
 
 add_executable(typish main.cpp)
 
