@@ -6,6 +6,9 @@
 #include <glfw/glfw3.h>
 #include <glm/glm.hpp>
 
+#define WINDOW_WIDTH 800
+#define WINDOW_HEIGHT 800
+
 using std::cout, std::endl, std::string;
 
 static bool readFile(const char* filename, string& outfile);
