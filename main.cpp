@@ -61,19 +61,23 @@ private:
   GLuint poleVBO = -1;
   GLuint poleIBO = -1;
 
-  GLint transformLocation;
+  GLint mvpLocation;
   GLint timeLocation;
 
   void processInput(GLFWwindow* window);
-  static void resizeWindow(GLFWwindow* window, int width, int height);
+  void resizeWindow(GLFWwindow* window, int width, int height);
 
   clock_t starttime;
 
   float x = 0.0f;
   float delta = 0.01f;
+
+  int windowWidth, windowHeight;
 };
 
 Engine::Engine() {
+  windowWidth = WINDOW_WIDTH;
+  windowHeight = WINDOW_HEIGHT;
 }
 
 Engine::~Engine() {
@@ -107,7 +111,7 @@ bool Engine::init() {
   glfwWindowHint(GLFW_POSITION_Y, 400);
   //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
-  window = glfwCreateWindow(800, 800, "lets go", NULL, NULL);
+  window = glfwCreateWindow(windowWidth, windowHeight, "lets go", NULL, NULL);
   if (window == NULL) {
     cout << "Failed to create GLFW window" << endl;
     glfwTerminate();
@@ -121,9 +125,16 @@ bool Engine::init() {
     return false;
   }
 
-  glViewport(0, 0, 800, 800);
+  glViewport(0, 0, windowWidth, windowHeight);
 
-  glfwSetFramebufferSizeCallback(window, resizeWindow);
+  glfwSetWindowUserPointer(window, this);
+
+  auto func = [](GLFWwindow* w, int x, int y)
+  {
+    static_cast<Engine*>(glfwGetWindowUserPointer(w))->resizeWindow(w, x, y);
+  };
+
+  glfwSetFramebufferSizeCallback(window, func);
   GLclampf red = 0.0f, green = 0.0f, blue = 0.0f, alpha = 0.0f;
   glClearColor(red, green, blue, alpha);
 
@@ -336,9 +347,9 @@ bool Engine::compileShaders() {
     return false;
   }
 
-  transformLocation = glGetUniformLocation(shaderProgram, "transform");
-  if (transformLocation == -1) {
-    cout << "Error getting uniform location of 'transform'" << endl;
+  mvpLocation = glGetUniformLocation(shaderProgram, "mvp");
+  if (mvpLocation == -1) {
+    cout << "Error getting uniform location of 'mvp'" << endl;
     return false;
   }
 
@@ -419,18 +430,40 @@ void Engine::render() {
                                         0.0f, 0.0f, 1.0f, 0.0f,
                                         0.0f, 0.0f, 2.0f, 1.0f);
 
-  float FOV = 90.0f;
-  float tanHalfFOV = glm::tan(glm::radians(FOV / 2.0f));
-  float f = 1.0f/tanHalfFOV;
-
-  glm::mat4x4 projection = glm::mat4x4(f, 0.0f, 0.0f, 0.0f,
-                                       0.0f, f, 0.0f, 0.0f,
-                                       0.0f, 0.0f, 1.0f, 1.0f,
-                                       0.0f, 0.0f, 0.0f, 0.0f);
-
   // IMPORTANT!! it seems that these matrices are multiplied LEFT TO RIGHT
   // and for a TRS matrix we wanna do SCALE, ROTATION then TRANSLATION
-  glm::mat4x4 transform = projection * translation * rotation * scaling;
+  glm::mat4 world = translation * rotation * scaling;
+
+  glm::vec3 camPos(0.0f, 0.0f, 0.0f);
+
+  glm::vec3 u(1.0f, 0.0f, 0.0f);
+  glm::vec3 v(0.0f, 1.0f, 0.0f);
+  glm::vec3 n(0.0f, 0.0f, 1.0f);
+
+  glm::mat4 camera(u.x,       v.x,       n.x,       0.0f,
+                   u.y,       v.y,       n.y,        0.0f,
+                   u.z,       v.z,       n.z,       0.0f,
+                   -camPos.x, -camPos.y, -camPos.z, 1.0f);
+
+  float FOV = 90.0f;
+  float tanHalfFOV = glm::tan(glm::radians(FOV / 2.0f));
+  float d = 1.0f/tanHalfFOV;
+
+  float ar = (float)windowWidth / (float)windowHeight;
+
+  float nearZ = 1.0f;
+  float farZ = 10.0f;
+
+  float zRange = nearZ - farZ;
+  float a = (-farZ - nearZ)/zRange;
+  float b = (2*farZ*nearZ)/zRange;
+
+  glm::mat4x4 projection = glm::mat4x4(d/ar, 0.0f, 0.0f, 0.0f,
+                                       0.0f, d,    0.0f,  0.0f,
+                                       0.0f, 0.0f, a,    1.0f,
+                                       0.0f, 0.0f, b,    0.0f);
+
+  glm::mat4x4 mvp = projection * camera * world;
   // glm::mat4x4 transform = glm::mat4x4(1.0f, 0.0f, 0.0f, 0.0f,
   //                                     0.0f, 1.0f, 0.0f, 0.0f,
   //                                     0.0f, 0.0f, 1.0f, 0.0f,
@@ -440,7 +473,7 @@ void Engine::render() {
   auto time = float(currenttime - starttime) / float(CLOCKS_PER_SEC);
 
   glUniform1f(timeLocation, time);
-  glUniformMatrix4fv(transformLocation, 1, GL_FALSE, &transform[0][0]);
+  glUniformMatrix4fv(mvpLocation, 1, GL_FALSE, &mvp[0][0]);
 
   GLint currentVAO;
   glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &currentVAO);
@@ -464,6 +497,8 @@ void Engine::processInput(GLFWwindow *window) {
 
 void Engine::resizeWindow(GLFWwindow *window, int width, int height) {
   glViewport(0, 0, width, height);
+  windowWidth = width;
+  windowHeight = height;
 }
 
 int main() {

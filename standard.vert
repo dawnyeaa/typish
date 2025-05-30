@@ -6,7 +6,7 @@ layout (location = 1) in vec3 col;
 out vec3 position;
 out vec4 color;
 
-uniform mat4x4 transform;
+uniform mat4 mvp;
 uniform float time;
 
 const vec4 colors[3] = vec4[3](vec4(1, 0, 0, 1),
@@ -20,7 +20,7 @@ void main() {
 //  vec2 pos2 = pos.xy;
 //  pos2 = mat2x2(c, -s, s, c) * pos2;
 
-  gl_Position = transform * vec4(pos, 1);
+  gl_Position = mvp * vec4(pos, 1);
   position = pos.xyz;
   color = vec4(col, 1);
 }
