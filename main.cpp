@@ -5,6 +5,7 @@
 #include <GL/glew.h>
 #include <glfw/glfw3.h>
 #include <glm/glm.hpp>
+#include "transform.h"
 
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 800
@@ -49,9 +50,10 @@ public:
 
 private:
   bool createCubeVAO();
-  bool createPoleVAO();
   bool compileShaders();
   bool addShader(GLuint shaderProgram, const char* pShaderText, GLenum shaderType);
+  void processInput(GLFWwindow* window);
+  void processTime();
   void render();
 
   GLFWwindow* window;
@@ -59,21 +61,18 @@ private:
   GLuint cubeVAO = -1;
   GLuint cubeVBO = -1;
   GLuint cubeIBO = -1;
-
-  GLuint poleVAO = -1;
-  GLuint poleVBO = -1;
-  GLuint poleIBO = -1;
+  Transform cubeTransform;
 
   GLint mvpLocation;
   GLint timeLocation;
 
-  void processInput(GLFWwindow* window);
   void resizeWindow(GLFWwindow* window, int width, int height);
 
   clock_t starttime;
+  clock_t lasttime;
 
-  float x = 0.0f;
-  float delta = 0.01f;
+  float time;
+  float deltaTime;
 
   int windowWidth, windowHeight;
 };
@@ -81,6 +80,8 @@ private:
 Engine::Engine() {
   windowWidth = WINDOW_WIDTH;
   windowHeight = WINDOW_HEIGHT;
+
+  cubeTransform = Transform();
 }
 
 Engine::~Engine() {
@@ -92,15 +93,6 @@ Engine::~Engine() {
   }
   if (cubeIBO != -1) {
     glDeleteBuffers(1, &cubeIBO);
-  }
-  if (poleVAO != -1) {
-    glDeleteVertexArrays(1, &poleVAO);
-  }
-  if (poleVBO != -1) {
-    glDeleteBuffers(1, &poleVBO);
-  }
-  if (poleIBO != -1) {
-    glDeleteBuffers(1, &poleIBO);
   }
   glfwTerminate();
 }
@@ -146,13 +138,15 @@ bool Engine::init() {
   glCullFace(GL_BACK);
 
   if (!createCubeVAO()) return false;
-  if (!createPoleVAO()) return false;
 
   glBindVertexArray(cubeVAO);
+
+  cubeTransform.setPosition(0.f, 0.f, 2.f);
 
   if (!compileShaders()) return false;
 
   starttime = clock();
+  lasttime = clock();
 
   return true;
 }
@@ -217,88 +211,6 @@ bool Engine::createCubeVAO() {
 
   glGenBuffers(1, &cubeIBO);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cubeIBO);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
-  glBindVertexArray(0);
-  glDisableVertexAttribArray(0);
-  glDisableVertexAttribArray(1);
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
-  return true;
-}
-
-bool Engine::createPoleVAO() {
-  glGenVertexArrays(1, &poleVAO);
-  glBindVertexArray(poleVAO);
-  Vertex vertices[19];
-
-  // center
-  vertices[0] = Vertex(0.0f, 0.0f);
-
-  // top row
-  vertices[1] = Vertex(-1.0f,  1.0f);
-  vertices[2] = Vertex(-0.75f, 1.0f);
-  vertices[3] = Vertex(-0.5f,  1.0f);
-  vertices[4] = Vertex(-0.25f, 1.0f);
-  vertices[5] = Vertex(-0.0f,  1.0f);
-  vertices[6] = Vertex(0.25f,  1.0f);
-  vertices[7] = Vertex(0.5f,   1.0f);
-  vertices[8] = Vertex(0.75f,  1.0f);
-  vertices[9] = Vertex(1.0f,   1.0f);
-
-  // bottom row
-  vertices[10] = Vertex(-1.0f,  -1.0f);
-  vertices[11] = Vertex(-0.75f, -1.0f);
-  vertices[12] = Vertex(-0.5f,  -1.0f);
-  vertices[13] = Vertex(-0.25f, -1.0f);
-  vertices[14] = Vertex(-0.0f,  -1.0f);
-  vertices[15] = Vertex(0.25f,  -1.0f);
-  vertices[16] = Vertex(0.5f,   -1.0f);
-  vertices[17] = Vertex(0.75f,  -1.0f);
-  vertices[18] = Vertex(1.0f,   -1.0f);
-
-  glGenBuffers(1, &poleVBO);
-  glBindBuffer(GL_ARRAY_BUFFER, poleVBO);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-  // position
-  glEnableVertexAttribArray(0);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), 0);
-
-  // color
-  glEnableVertexAttribArray(1);
-  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-
-
-  unsigned int indices[] = { // top triangles
-    0, 2, 1,
-    0, 3, 2,
-    0, 4, 3,
-    0, 5, 4,
-    0, 6, 5,
-    0, 7, 6,
-    0, 8, 7,
-    0, 9, 8,
-
-    // bottom triangles
-    0, 10, 11,
-    0, 11, 12,
-    0, 12, 13,
-    0, 13, 14,
-    0, 14, 15,
-    0, 15, 16,
-    0, 16, 17,
-    0, 17, 18,
-
-    // left triangle
-    0, 1, 10,
-
-    // right triangle
-    0, 18, 9 };
-
-  glGenBuffers(1, &poleIBO);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, poleIBO);
   glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
   glBindVertexArray(0);
@@ -411,31 +323,10 @@ bool Engine::addShader(GLuint shaderProgram, const char *pShaderText, GLenum sha
 void Engine::render() {
   glClear(GL_COLOR_BUFFER_BIT);
 
-  x += delta;
-  if ((x >= 6.28f) || (x <= -6.28f)) {
-    x *= -1.0f;
-  }
+  float rotSpeed = 1.f * deltaTime;
 
-  float scale = 1.0f;
-
-  glm::mat4x4 scaling = glm::mat4x4(scale, 0.0f, 0.0f, 0.0f,
-                                    0.0f, scale, 0.0f, 0.0f,
-                                    0.0f, 0.0f, scale, 0.0f,
-                                    0.0f, 0.0f, 0.0f, 1.0f);
-
-  glm::mat4x4 rotation = glm::mat4x4(glm::cos(x), 0.0f,  glm::sin(x), 0.0f,
-                                     0.0f,        1.0f,  0.0f,         0.0f,
-                                     -glm::sin(x), 0.0f, glm::cos(x), 0.0f,
-                                     0.0f,        0.0f,  0.0f,        1.0f);
-
-  glm::mat4x4 translation = glm::mat4x4(1.0f, 0.0f, 0.0f, 0.0f,
-                                        0.0f, 1.0f, 0.0f, 0.0f,
-                                        0.0f, 0.0f, 1.0f, 0.0f,
-                                        0.0f, 0.0f, 2.0f, 1.0f);
-
-  // IMPORTANT!! it seems that these matrices are multiplied LEFT TO RIGHT
-  // and for a TRS matrix we wanna do SCALE, ROTATION then TRANSLATION
-  glm::mat4 world = translation * rotation * scaling;
+  cubeTransform.rotate(0.f, rotSpeed, 0.f);
+  glm::mat4 world = cubeTransform.getMatrix();
 
   glm::vec3 camPos(0.0f, 0.0f, 0.0f);
 
@@ -472,9 +363,6 @@ void Engine::render() {
   //                                     0.0f, 0.0f, 1.0f, 0.0f,
   //                                     0.0f, 0.0f, 0.0f, 1.0f);
 
-  auto currenttime = clock();
-  auto time = float(currenttime - starttime) / float(CLOCKS_PER_SEC);
-
   glUniform1f(timeLocation, time);
   glUniformMatrix4fv(mvpLocation, 1, GL_FALSE, &mvp[0][0]);
 
@@ -492,11 +380,15 @@ void Engine::render() {
 void Engine::processInput(GLFWwindow *window) {
   if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
     glfwSetWindowShouldClose(window, true);
-  if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS)
-    glBindVertexArray(cubeVAO);
-  if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS)
-    glBindVertexArray(poleVAO);
 }
+
+void Engine::processTime() {
+  auto currenttime = clock();
+  time = float(currenttime - starttime) / float(CLOCKS_PER_SEC);
+  deltaTime = float(currenttime - lasttime) / float(CLOCKS_PER_SEC);
+  lasttime = currenttime;
+}
+
 
 void Engine::resizeWindow(GLFWwindow *window, int width, int height) {
   glViewport(0, 0, width, height);
